@@ -1,0 +1,176 @@
+Começando no Cloud Shell e comandos gcloud
+
+Lista o nome da conta ativa:
+$ gcloud auth list
+
+Define a conta ativa
+$ gcloud config set account `ACCOUNT`
+
+Lista o ID do projeto
+$ gcloud config list Project
+
+Após o Cloud Shell ser ativado, você pode usar a linha de comando para invocar a gcloud ferramenta Cloud SDK ou outras ferramentas disponíveis na instância da máquina virtual.
+
+--
+
+Configuração de ambiente - Regiões e Zonas
+
+- Instâncias de máquina virtual e discos persistentes vivem em uma zona. 
+
+- Se você quiser anexar um disco persistente a uma instância de máquina virtual, ambos os recursos devem estar na mesma zona. 
+
+- Para atribuir um endereço IP estático a uma instância, a instância deve estar na mesma região que o endereço IP estático.
+
+Define a região
+$ gcloud config set compute/region REGION
+
+Para visualizar a região definida
+$ gcloud config get-value compute/region
+
+Define a zona
+$ gcloud config set compute/zone ZONE
+
+Para visualizar a zona definida
+$ gcloud config get-value compute/zone
+
+--
+
+Informações do projeto
+Exemplo: metadados de zona e região
+
+Para visualizar o ID do projeto
+$ gcloud config get-value Project
+
+Para ver detalhes sobre o projeto
+$ gcloud compute project-info describe --project $(gcloud config get-value project)
+
+--
+
+Configuração de variáveis de ambiente
+
+Criação de variáveis para armazenar o ID do projeto e a zona
+
+$ export PROJECT_ID=$(gcloud config get-value project)
+$ export ZONE=$(gcloud config get-value compute/zone)
+
+Para verificar se suas variáveis ​​foram definidas corretamente
+$ echo -e "PROJECT ID: $PROJECT_ID\nZONE: $ZONE"
+
+--
+
+Criação de VM com a gcloud
+
+Para criar a VM
+$ gcloud compute instances create gcelab2 --machine-type e2-medium --zone $ZONE
+
+📝 Detalhes do comando
+
+• gcloud compute: permite que você gerencie seus recursos do Compute Engine em um formato mais simples que a API do Compute Engine.
+
+• instances create: cria uma nova instância.
+
+• gcelab2: é o nome da VM.
+
+• --machine-type: sinalizador que especifica o tipo de máquina como e2-medium .
+
+• --zone: sinalizador especifica onde a VM é criada.
+
+Se --zone for omitida a gcloud pode a zona com base em propriedades padrão. Outras configurações de instância necessárias, como machine type e image, são definidas para valores padrão se não forem especificadas no comando create.
+
+--
+
+Explorando comandos do gcloud
+
+
+Para ajuda com os comandos gcloud
+$ gcloud -h   OU
+$ gcloud config --help   OU
+$ gcloud help config
+
+GLOBAL FLAGS (substituem quaisquer valores definidos nas propriedades do SDK): https://cloud.google.com/sdk/gcloud/reference/
+
+Para ver lista de configurações em seu ambiente
+$ gcloud config list
+
+Para ver todas propriedades e suas configurações
+$ gcloud config list --all
+
+Para listar componentes
+$ gcloud components list
+
+
+
+Filtros na linha de comando gcloud
+
+Lista a instância de computação disponível no projeto
+$ gcloud compute instances list
+
+Para listar a VM gcelab2 (mostrar apenas as informações que correspondem aos critérios)
+$ gcloud compute instances list --filter="name=('gcelab2')"
+
+Lista as regras de firewall no projeto
+$ gcloud compute firewall-rules list
+
+Exemplo de filtro para lista as regras de firewall para a rede padrão
+$ gcloud compute firewall-rules list --filter="network='default'"
+
+--
+
+Conectando com a instância da VM
+
+Para se conectar à VM com SSH
+$ gcloud compute ssh gcelab2 --zone $ZONE
+Confirme apertando Y
+Passphrase opcional (apertar enter 2x para deixar vazio)
+
+
+SAÍDA:
+O prompt agora diz algo semelhante a sa_107021519685252337470@gcelab2 .
+
+• A referência antes do @ indica a conta que está sendo usada.
+• Depois do sinal @ indica a máquina host que está sendo acessada.
+
+Instala o servidor web nginx na máquina virtual
+$ sudo apt install -y nginx
+
+Para desconectar do SSH e sair do shell remoto
+$ exit
+
+--
+
+Atualizando o firewall
+
+Lista as regras de firewall no projeto
+$ gcloud compute firewall-rules list
+
+O servidor web nginx espera se comunicar em tcp:80. Para que a comunicação funcione, é preciso:
+
+• Adicionar uma tag à máquina virtual gcelab2
+$ gcloud compute instances add-tags gcelab2 --tags http-server,https-server
+
+• Adicionar uma regra de firewall para tráfego http
+$ gcloud compute firewall-rules create default-allow-http --direction=INGRESS --priority=1000 --network=default --action=ALLOW --rules=tcp:80 --source-ranges=0.0.0.0/0 --target-tags=http-server
+
+Novamente vamos listar as regras de firewall no projeto, incluindo um filtro para a tcp permitida
+$ gcloud compute firewall-rules list --filter=ALLOW:'80'
+
+Verifica se a comunicação é possível entre http e a máquina virtual
+$ curl http://$(gcloud compute instances list --filter=name:gcelab2 --format='value(EXTERNAL_IP)')
+
+--
+
+Visualizando os logs do sistema
+
+Visualizar os logs disponíveis no sistema
+$ gcloud logging logs list
+
+FILTROS - Exemplos: 
+
+Visualizar os logs relacionados aos recursos de computação
+$ gcloud logging logs list --filter="compute"
+
+Ler os logs relacionados ao tipo de recurso de gce_instance
+$ gcloud logging read "resource.type=gce_instance" --limit 5
+
+Ler os logs de uma VM específica
+$ gcloud logging read "resource.type=gce_instance AND labels.instance_name='gcelab2'" --limit 5
